@@ -2,10 +2,12 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- RWD Meta Tag: Prevents auto-zoom on input focus for iOS devices -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>退休財務動態儀表板</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        /* Base Styles (Desktop First) */
         body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             background-color: #f4f6f9; 
@@ -114,16 +116,71 @@
         
         .cloud-settings { background: #fdf2e9; padding: 10px; border-radius: 6px; margin-bottom: 12px; border: 1px solid #fad7a1; }
         .cloud-settings .form-group input { width: 150px; }
+
+        /* RWD Mobile Styles for iPhone */
+        @media (max-width: 768px) {
+            body { 
+                height: auto; /* Allow natural scrolling on mobile */
+                overflow-y: auto; 
+                padding: 10px;
+            }
+            .dashboard-header { 
+                flex-direction: column; 
+                align-items: flex-start; 
+                gap: 12px; 
+            }
+            .dashboard-header > div { 
+                display: flex; 
+                flex-wrap: wrap; 
+                width: 100%; 
+                gap: 6px; 
+            }
+            .dashboard-header > div > button { 
+                flex: 1 1 calc(50% - 6px); /* Buttons span 50% width */
+                padding: 10px; 
+                font-size: 13px; 
+            }
+            .grid-container { 
+                display: flex; 
+                flex-direction: column; 
+                height: auto; 
+                min-height: auto; 
+            }
+            .panel { 
+                height: auto; 
+                overflow: visible; /* Disable inner scroll, let the whole page scroll */
+            }
+            .scrollable-content { 
+                overflow-y: visible; 
+            }
+            .chart-container { 
+                height: 400px; 
+                flex: none; 
+                margin-bottom: 20px; 
+            }
+            .modal-content, .modal-content.small { 
+                width: 100%; 
+                height: 100%; 
+                margin: 0; 
+                border-radius: 0; 
+                padding: 15px; 
+                max-height: none;
+            }
+            .details-table th, .details-table td {
+                padding: 6px 8px;
+                font-size: 12px;
+            }
+        }
     </style>
 </head>
 <body>
 
     <div class="dashboard-header">
-        <h1>📊 退休財務動態儀表板 <span id="syncStatus" class="sync-status">未連接雲端</span></h1>
+        <h1>📊 退休財務儀表板 <span id="syncStatus" class="sync-status">未連接雲端</span></h1>
         <div>
-            <button class="btn btn-primary" onclick="forceSyncFromCloud()" style="background-color: #8e44ad; margin-right: 5px;">📥 強制從雲端抓取</button>
-            <button class="btn btn-primary" onclick="openDetailsModal()">📄 查看每月明細表</button>
-            <button class="btn btn-danger" onclick="resetData()">↺ 重置</button>
+            <button class="btn btn-primary" onclick="forceSyncFromCloud()" style="background-color: #8e44ad;">📥 雲端同步</button>
+            <button class="btn btn-primary" onclick="openDetailsModal()">📄 查看明細</button>
+            <button class="btn btn-danger" onclick="resetData()">↺ 重置設定</button>
         </div>
     </div>
 
@@ -249,7 +306,7 @@
                 </div>
                 <div class="form-group" style="justify-content: flex-start; gap: 8px;">
                     <input type="checkbox" id="newPrepayFromInv">
-                    <label for="newPrepayFromInv">資金從「投資帳戶」強制提領扣款</label>
+                    <label for="newPrepayFromInv">從「投資帳戶」強制提領扣款</label>
                 </div>
                 <div style="text-align: right; margin-top: 10px;">
                     <button class="btn btn-primary" onclick="addPrepaymentRecord()">新增紀錄</button>
@@ -258,7 +315,7 @@
             <div class="table-scroll-container" style="max-height: 250px;">
                 <table class="details-table">
                     <thead>
-                        <tr><th>日期</th><th>金額 (萬)</th><th>資金來源</th><th>操作</th></tr>
+                        <tr><th>日期</th><th>金額(萬)</th><th>資金來源</th><th>操作</th></tr>
                     </thead>
                     <tbody id="prepayListBody"></tbody>
                 </table>
@@ -291,7 +348,6 @@
                 gistId: document.getElementById('ghGistId').value.trim()
             };
             localStorage.setItem(CREDENTIALS_KEY, JSON.stringify(creds));
-            // When credentials change, attempt to load from the new cloud location immediately
             if (creds.token && creds.gistId) {
                 fetchStateFromCloud();
             }
@@ -316,14 +372,13 @@
                     const gist = await response.json();
                     const fileContent = gist.files['RetireData.json']?.content;
                     if (fileContent) {
-                        // Success: Save cloud data to local and parse
                         localStorage.setItem(LOCAL_SAVE_KEY, fileContent);
                         setSyncStatus('success', '✅ 已與雲端同步');
                         isFetchingCloud = false;
                         return true; 
                     }
                 } else {
-                    setSyncStatus('error', '❌ 雲端存取失敗，請檢查 Token 或 ID');
+                    setSyncStatus('error', '❌ 雲端存取失敗');
                 }
             } catch (err) {
                 console.error("Cloud fetch error", err);
@@ -362,14 +417,13 @@
                 }
             } catch (err) {
                 console.error("Cloud save error", err);
-                setSyncStatus('error', '❌ 網路異常，僅儲存於本機');
+                setSyncStatus('error', '❌ 網路異常');
             }
         }
 
         async function forceSyncFromCloud() {
             const success = await fetchStateFromCloud();
             if (success) {
-                // Clear UI lists before repopulating
                 document.getElementById('propertiesList').innerHTML = '';
                 document.getElementById('mortgagesList').innerHTML = '';
                 propertyCount = 0;
@@ -377,13 +431,12 @@
                 applyStateToUI();
                 runSimulationAndDraw();
             } else {
-                alert("無法從雲端抓取資料，請確認右側金鑰與 Gist ID 是否設定正確！");
+                alert("無法從雲端抓取資料，請確認 GitHub 金鑰與 Gist ID 是否設定正確！");
             }
         }
 
         // --- Core App Lifecycle ---
         async function initApp() {
-            // Load credentials to UI
             const credsStr = localStorage.getItem(CREDENTIALS_KEY);
             if (credsStr) {
                 const creds = JSON.parse(credsStr);
@@ -391,10 +444,7 @@
                 document.getElementById('ghGistId').value = creds.gistId || '';
             }
 
-            // Attempt to load from cloud first
             const loadedFromCloud = await fetchStateFromCloud();
-            
-            // Apply whatever state is in localStorage (updated by cloud or previously stored)
             applyStateToUI();
             runSimulationAndDraw();
         }
@@ -427,7 +477,6 @@
                     console.error("Local data parse error", e);
                 }
             }
-            // Fallback
             loadDefaults();
         }
 
@@ -444,7 +493,6 @@
         function resetData() {
             if(confirm('確定要清除所有設定並恢復預設值嗎？ (這也會清空綁定的雲端資料)')) {
                 localStorage.removeItem(LOCAL_SAVE_KEY);
-                // We overwrite cloud with defaults immediately
                 document.getElementById('propertiesList').innerHTML = '';
                 document.getElementById('mortgagesList').innerHTML = '';
                 propertyCount = 0;
@@ -499,21 +547,18 @@
         }
 
         function triggerAutoSave() {
-            if (isFetchingCloud) return; // Prevent saving while loading
+            if (isFetchingCloud) return; 
             
             const stateObj = extractCurrentState();
             const stateStr = JSON.stringify(stateObj);
             
-            // 1. Save to Local Immediately
             localStorage.setItem(LOCAL_SAVE_KEY, stateStr);
             
-            // 2. Debounce Save to Cloud (Wait 1.5s after user stops typing)
             clearTimeout(autoSaveTimeout);
             autoSaveTimeout = setTimeout(() => {
                 pushStateToCloud(stateStr);
             }, 1500);
         }
-
 
         // --- UI Interactions ---
         function addProperty(value = 1000, rate = 2.0, render = true) {
@@ -593,7 +638,7 @@
                         <div class="item-row">
                             <div style="flex: 1.5;">
                                 <label>自訂名稱</label>
-                                <input type="text" id="mortName_${id}" value="${name}" placeholder="${displayName}" onchange="updateMortgageName(${id});">
+                                <input type="text" id="mortName_${id}" value="${name}" placeholder="${displayName}" onchange="updateMortgageName(${id}); runSimulationAndDraw();">
                             </div>
                             <div style="flex: 2;">
                                 <label style="color: #c0392b; font-weight: bold;">房貸起始日</label>
@@ -734,7 +779,6 @@
 
         // --- Core Simulation Engine ---
         function runSimulationAndDraw() {
-            // Trigger Save Debounce mechanism instead of instant blocking save
             triggerAutoSave(); 
 
             const g = extractCurrentState();
@@ -745,7 +789,7 @@
 
             const mortgages = [];
             
-            g.mortgages.forEach(mortState => {
+            g.mortgages.forEach((mortState, index) => {
                 const prepayments = mortState.prepayments;
                 prepayments.sort((a, b) => new Date(a.date) - new Date(b.date));
                 prepayments.forEach(p => p.applied = false);
@@ -826,10 +870,8 @@
                     }
                 }
 
-                // UI mapping requires getting the ID from the card element order (hacky but works since order is preserved)
-                // However, since we re-fetched from DOM, let's locate the corresponding elements
                 const propCards = document.querySelectorAll('[id^="mortCard_"]');
-                const id = propCards[mortgages.length].id.split('_')[1];
+                const id = propCards[index].id.split('_')[1];
 
                 document.getElementById(`mortCurrentBalDisplay_${id}`).innerText = `推算至模擬起始日，剩餘本金: ${Math.round(mort.balance / 10000).toLocaleString()} 萬`;
                 document.getElementById(`mortSummary_${id}`).innerText = `餘額: ${Math.round(mort.balance / 10000).toLocaleString()}萬 | 下期: ${Math.round(nextPmtDisplay).toLocaleString()}元`;
@@ -1080,4 +1122,3 @@
     </script>
 </body>
 </html>
-
