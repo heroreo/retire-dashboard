@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>退休財務動態儀表板</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: #f4f6f9; 
+            color: #333; 
+            margin: 0; 
+            padding: 15px 20px; 
+            box-sizing: border-box;
+            height: 100vh; 
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; 
+        }
+        h1, h2, h3 { color: #2c3e50; }
+        
+        .dashboard-header { 
+            display: flex; justify-content: space-between; align-items: center; 
+            background: #fff; padding: 12px 20px; border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 15px; 
+            flex-shrink: 0; 
+        }
+        .dashboard-header h1 { margin: 0; font-size: 22px; color: #1a5276; display: flex; align-items: center; gap: 15px;}
+        .sync-status { font-size: 13px; font-weight: normal; padding: 4px 10px; border-radius: 15px; background: #e0e0e0; color: #666; transition: 0.3s; }
+        .sync-status.success { background: #eafaf1; color: #27ae60; border: 1px solid #c8e6c9; }
+        .sync-status.saving { background: #fef9e7; color: #f39c12; border: 1px solid #fdebd0; }
+        .sync-status.error { background: #fdedec; color: #c0392b; border: 1px solid #fadbd8; }
+
+        .btn { padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; transition: 0.3s; }
+        .btn-primary { background-color: #2980b9; color: white; }
+        .btn-primary:hover { background-color: #1f618d; }
+        .btn-danger { background-color: #e74c3c; color: white; }
+        .btn-danger:hover { background-color: #c0392b; }
+        
+        .grid-container { 
+            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px; 
+            height: 40vh; 
+            min-height: 270px;
+            flex-shrink: 0;
+        }
+        
+        .panel { 
+            background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
+            display: flex; flex-direction: column; overflow: hidden; 
+        }
+        .panel h2 { 
+            font-size: 16px; margin-top: 0; margin-bottom: 10px; display: flex; justify-content: space-between; 
+            align-items: center; border-bottom: 2px solid #eee; padding-bottom: 8px; flex-shrink: 0;
+        }
+        .scrollable-content {
+            flex: 1; overflow-y: auto; padding-right: 5px;
+        }
+        .scrollable-content::-webkit-scrollbar { width: 6px; }
+        .scrollable-content::-webkit-scrollbar-thumb { background-color: #ccc; border-radius: 3px; }
+        
+        .form-group { margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .form-group label { font-size: 13px; font-weight: 500; }
+        .form-group input[type="number"], .form-group input[type="date"], .form-group input[type="text"], .form-group input[type="password"] { 
+            width: 95px; padding: 4px; border: 1px solid #ccc; border-radius: 4px; text-align: right; font-family: inherit;
+        }
+        .form-group input[type="date"] { font-size: 11px; }
+        .form-group input[type="text"], .form-group input[type="password"] { text-align: left; }
+        .form-group input[type="checkbox"] { margin-right: 5px; }
+        
+        /* Mortgage Card Styles */
+        .item-card { background: #f9f9f9; border: 1px solid #e0e0e0; padding: 10px; border-radius: 6px; margin-bottom: 10px; position: relative; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding-bottom: 5px; border-bottom: 1px solid transparent; }
+        .card-header h3 { font-size: 14px; margin: 0; color: #d35400; font-weight: bold; }
+        .card-header:hover { opacity: 0.8; }
+        
+        .mort-summary { font-size: 12px; color: #27ae60; font-weight: bold; margin-right: 15px; display: none; }
+        .mort-body { transition: max-height 0.3s ease; overflow: hidden; display: block; }
+        .mort-body.collapsed { display: none; }
+        
+        .remove-btn { background: #e74c3c; color: white; border: none; border-radius: 3px; padding: 3px 6px; font-size: 11px; cursor: pointer; }
+        .toggle-icon { font-size: 10px; color: #666; margin-left: 10px; }
+        
+        .item-row { display: flex; gap: 8px; margin-bottom: 8px; }
+        .item-row > div { flex: 1; }
+        .item-row label { display: block; font-size: 11px; color: #666; margin-bottom: 3px; }
+        .item-row input { width: 100%; box-sizing: border-box; font-size: 13px;}
+        .item-row input[type="date"] { font-size: 11px; }
+        .current-balance-display { color: #27ae60; font-weight: bold; font-size: 13px; margin: 5px 0 10px 0; background: #eafaf1; padding: 5px; border-radius: 4px; text-align: center; border: 1px solid #c8e6c9;}
+
+        .chart-container { 
+            background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
+            flex: 1; 
+            min-height: 0; 
+            position: relative; 
+        }
+        
+        /* Modals */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-content { 
+            background: #fff; width: 95%; max-width: 1200px; margin: auto; padding: 20px; 
+            border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); 
+            height: 94vh; display: flex; flex-direction: column; box-sizing: border-box;
+        }
+        .modal-content.small { width: 600px; height: auto; max-height: 80vh; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;}
+        .modal-header h2 { margin: 0; font-size: 18px; }
+        .table-scroll-container { flex: 1; overflow: auto; border: 1px solid #eee; border-radius: 4px; }
+        
+        .details-table { width: 100%; border-collapse: collapse; font-size: 13px; white-space: nowrap; }
+        .details-table th, .details-table td { border: 1px solid #ddd; padding: 8px 12px; text-align: center; }
+        .details-table th { background-color: #f2f2f2; position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 2px -1px rgba(0,0,0,0.1); }
+        .details-table tbody tr:nth-child(even) { background-color: #f9f9f9; }
+        
+        .cloud-settings { background: #fdf2e9; padding: 10px; border-radius: 6px; margin-bottom: 12px; border: 1px solid #fad7a1; }
+        .cloud-settings .form-group input { width: 150px; }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard-header">
+        <h1>📊 退休財務動態儀表板 <span id="syncStatus" class="sync-status">未連接雲端</span></h1>
+        <div>
+            <button class="btn btn-primary" onclick="forceSyncFromCloud()" style="background-color: #8e44ad; margin-right: 5px;">📥 強制從雲端抓取</button>
+            <button class="btn btn-primary" onclick="openDetailsModal()">📄 查看每月明細表</button>
+            <button class="btn btn-danger" onclick="resetData()">↺ 重置</button>
+        </div>
+    </div>
+
+    <div class="grid-container">
+        <!-- 1. General Parameters Panel -->
+        <div class="panel">
+            <h2>⚙️ 系統與參數設定</h2>
+            <div class="scrollable-content">
+                
+                <!-- Cloud Sync Config -->
+                <div class="cloud-settings">
+                    <div style="font-size: 12px; font-weight: bold; color: #d35400; margin-bottom: 8px;">☁️ 雲端同步設定 (GitHub Gist)</div>
+                    <div class="form-group">
+                        <label>GitHub Token (PAT)</label>
+                        <input type="password" id="ghToken" placeholder="ghp_xxxx..." onchange="saveCloudCredentials()">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Gist ID</label>
+                        <input type="text" id="ghGistId" placeholder="abcdef123..." onchange="saveCloudCredentials()">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label style="color: #27ae60; font-weight: bold;">投資起始日</label>
+                    <input type="date" id="investStartDate" onchange="runSimulationAndDraw()">
+                </div>
+                <div class="form-group">
+                    <label>初始本金 (萬)</label>
+                    <input type="number" id="initInv" value="960" onchange="runSimulationAndDraw()">
+                </div>
+                <div class="form-group">
+                    <label>投資報酬率 (%)</label>
+                    <input type="number" id="annualRate" value="8.0" step="0.1" onchange="runSimulationAndDraw()">
+                </div>
+                <div class="form-group">
+                    <label>初始月投入 (萬)</label>
+                    <input type="number" id="initInvest" value="2.0" step="0.1" onchange="runSimulationAndDraw()">
+                </div>
+                <div class="form-group" style="justify-content: flex-start; gap: 10px; font-size: 12px;">
+                    <input type="radio" name="investMode" id="modeRate" value="rate" onchange="runSimulationAndDraw()"> 
+                    <label for="modeRate">年增率(%)</label>
+                    <input type="radio" name="investMode" id="modeFixed" value="fixed" checked onchange="runSimulationAndDraw()"> 
+                    <label for="modeFixed">年固定(萬)</label>
+                </div>
+                <div class="form-group">
+                    <label>每年多存 (萬/%)</label>
+                    <input type="number" id="yearlyAdd" value="0.2" step="0.1" onchange="runSimulationAndDraw()">
+                </div>
+                
+                <hr style="border: 0; border-top: 1px dashed #ccc; margin: 12px 0;">
+                
+                <div class="form-group">
+                    <label style="color: #2980b9; font-weight: bold;">單筆額外投入 (萬)</label>
+                    <input type="number" id="extraInvest" value="0" step="10" onchange="runSimulationAndDraw()">
+                </div>
+                <div class="form-group">
+                    <label style="color: #2980b9; font-weight: bold;">單筆投入年份 (第 N 年)</label>
+                    <input type="number" id="extraInvestYear" value="5" onchange="runSimulationAndDraw()">
+                </div>
+
+                <hr style="border: 0; border-top: 1px dashed #ccc; margin: 12px 0;">
+
+                <div class="form-group">
+                    <label>退休年資 (年)</label>
+                    <input type="number" id="retireYear" value="20" onchange="runSimulationAndDraw()">
+                </div>
+                <div class="form-group">
+                    <label>退休月提領 (萬)</label>
+                    <input type="number" id="retireWithdraw" value="10.0" step="0.1" onchange="runSimulationAndDraw()">
+                </div>
+                <div class="form-group">
+                    <label>退休月投入 (萬)</label>
+                    <input type="number" id="retireInvest" value="2.0" step="0.1" onchange="runSimulationAndDraw()">
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Properties Panel -->
+        <div class="panel">
+            <h2>🏠 房產 <button class="btn btn-primary" style="padding: 3px 6px; font-size: 11px;" onclick="addProperty(1000, 2.0, true)">+ 新增</button></h2>
+            <div class="scrollable-content" id="propertiesList"></div>
+        </div>
+
+        <!-- 3. Mortgages Panel -->
+        <div class="panel">
+            <h2>🏦 房貸明細 <button class="btn btn-primary" style="padding: 3px 6px; font-size: 11px;" onclick="addMortgage(1000, 2.0, 30, 0, false, null, [], '', false, true)">+ 新增</button></h2>
+            <div class="scrollable-content" id="mortgagesList"></div>
+        </div>
+    </div>
+
+    <!-- Chart Section -->
+    <div class="chart-container">
+        <canvas id="financeChart"></canvas>
+    </div>
+
+    <!-- Details Table Modal -->
+    <div class="modal-overlay" id="detailsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📄 每月現金流與提領明細</h2>
+                <button class="btn btn-danger" onclick="closeDetailsModal()">✖ 關閉</button>
+            </div>
+            <div class="table-scroll-container" id="tableContainer"></div>
+        </div>
+    </div>
+
+    <!-- Prepayment History Modal -->
+    <div class="modal-overlay" id="prepayModal">
+        <div class="modal-content small">
+            <div class="modal-header">
+                <h2>🏦 <span id="activePrepayMortIdLabel"></span> 提前還款紀錄</h2>
+                <button class="btn btn-danger" onclick="closePrepayModal()">✖ 關閉</button>
+            </div>
+            <div style="background: #f9f9f9; padding: 15px; border-radius: 6px; border: 1px solid #ddd; margin-bottom: 15px;">
+                <h4 style="margin-top:0; margin-bottom: 10px; color: #8e44ad;">+ 新增提前還款</h4>
+                <div class="form-group">
+                    <label>日期</label>
+                    <input type="date" id="newPrepayDate">
+                </div>
+                <div class="form-group">
+                    <label>金額 (萬)</label>
+                    <input type="number" id="newPrepayAmt" placeholder="例如: 50">
+                </div>
+                <div class="form-group" style="justify-content: flex-start; gap: 8px;">
+                    <input type="checkbox" id="newPrepayFromInv">
+                    <label for="newPrepayFromInv">資金從「投資帳戶」強制提領扣款</label>
+                </div>
+                <div style="text-align: right; margin-top: 10px;">
+                    <button class="btn btn-primary" onclick="addPrepaymentRecord()">新增紀錄</button>
+                </div>
+            </div>
+            <div class="table-scroll-container" style="max-height: 250px;">
+                <table class="details-table">
+                    <thead>
+                        <tr><th>日期</th><th>金額 (萬)</th><th>資金來源</th><th>操作</th></tr>
+                    </thead>
+                    <tbody id="prepayListBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let chartInstance = null;
+        let propertyCount = 0;
+        let mortgageCount = 0;
+        let activePrepayMortId = null; 
+        
+        const LOCAL_SAVE_KEY = 'retireDashboardData_v4'; 
+        const CREDENTIALS_KEY = 'retireCloudCredentials';
+
+        let autoSaveTimeout = null;
+        let isFetchingCloud = false;
+
+        // --- Cloud API Integration ---
+        function setSyncStatus(state, message) {
+            const el = document.getElementById('syncStatus');
+            el.innerText = message;
+            el.className = `sync-status ${state}`;
+        }
+
+        function saveCloudCredentials() {
+            const creds = {
+                token: document.getElementById('ghToken').value.trim(),
+                gistId: document.getElementById('ghGistId').value.trim()
+            };
+            localStorage.setItem(CREDENTIALS_KEY, JSON.stringify(creds));
+            // When credentials change, attempt to load from the new cloud location immediately
+            if (creds.token && creds.gistId) {
+                fetchStateFromCloud();
+            }
+        }
+
+        async function fetchStateFromCloud() {
+            const credsStr = localStorage.getItem(CREDENTIALS_KEY);
+            if (!credsStr) return false;
+            const creds = JSON.parse(credsStr);
+            if (!creds.token || !creds.gistId) return false;
+
+            setSyncStatus('saving', '☁️ 正在從雲端載入...');
+            isFetchingCloud = true;
+
+            try {
+                const response = await fetch(`https://api.github.com/gists/${creds.gistId}`, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${creds.token}` }
+                });
+
+                if (response.ok) {
+                    const gist = await response.json();
+                    const fileContent = gist.files['RetireData.json']?.content;
+                    if (fileContent) {
+                        // Success: Save cloud data to local and parse
+                        localStorage.setItem(LOCAL_SAVE_KEY, fileContent);
+                        setSyncStatus('success', '✅ 已與雲端同步');
+                        isFetchingCloud = false;
+                        return true; 
+                    }
+                } else {
+                    setSyncStatus('error', '❌ 雲端存取失敗，請檢查 Token 或 ID');
+                }
+            } catch (err) {
+                console.error("Cloud fetch error", err);
+                setSyncStatus('error', '❌ 網路錯誤，切換為本機模式');
+            }
+            isFetchingCloud = false;
+            return false;
+        }
+
+        async function pushStateToCloud(stateJsonStr) {
+            const credsStr = localStorage.getItem(CREDENTIALS_KEY);
+            if (!credsStr) return;
+            const creds = JSON.parse(credsStr);
+            if (!creds.token || !creds.gistId) return;
+
+            setSyncStatus('saving', '☁️ 雲端同步中...');
+
+            try {
+                const response = await fetch(`https://api.github.com/gists/${creds.gistId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${creds.token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        files: {
+                            'RetireData.json': { content: stateJsonStr }
+                        }
+                    })
+                });
+
+                if (response.ok) {
+                    setSyncStatus('success', '✅ 已儲存至雲端');
+                } else {
+                    setSyncStatus('error', '❌ 同步失敗 (權限錯誤)');
+                }
+            } catch (err) {
+                console.error("Cloud save error", err);
+                setSyncStatus('error', '❌ 網路異常，僅儲存於本機');
+            }
+        }
+
+        async function forceSyncFromCloud() {
+            const success = await fetchStateFromCloud();
+            if (success) {
+                // Clear UI lists before repopulating
+                document.getElementById('propertiesList').innerHTML = '';
+                document.getElementById('mortgagesList').innerHTML = '';
+                propertyCount = 0;
+                mortgageCount = 0;
+                applyStateToUI();
+                runSimulationAndDraw();
+            } else {
+                alert("無法從雲端抓取資料，請確認右側金鑰與 Gist ID 是否設定正確！");
+            }
+        }
+
+        // --- Core App Lifecycle ---
+        async function initApp() {
+            // Load credentials to UI
+            const credsStr = localStorage.getItem(CREDENTIALS_KEY);
+            if (credsStr) {
+                const creds = JSON.parse(credsStr);
+                document.getElementById('ghToken').value = creds.token || '';
+                document.getElementById('ghGistId').value = creds.gistId || '';
+            }
+
+            // Attempt to load from cloud first
+            const loadedFromCloud = await fetchStateFromCloud();
+            
+            // Apply whatever state is in localStorage (updated by cloud or previously stored)
+            applyStateToUI();
+            runSimulationAndDraw();
+        }
+
+        function applyStateToUI() {
+            const savedData = localStorage.getItem(LOCAL_SAVE_KEY);
+            if (savedData) {
+                try {
+                    const state = JSON.parse(savedData);
+                    document.getElementById('investStartDate').value = state.investStartDate || getTodayString();
+                    document.getElementById('initInv').value = state.initInv;
+                    document.getElementById('annualRate').value = state.annualRate;
+                    document.getElementById('initInvest').value = state.initInvest;
+                    document.getElementById('modeRate').checked = state.modeRate;
+                    document.getElementById('modeFixed').checked = state.modeFixed;
+                    document.getElementById('yearlyAdd').value = state.yearlyAdd;
+                    document.getElementById('extraInvest').value = state.extraInvest;
+                    document.getElementById('extraInvestYear').value = state.extraInvestYear;
+                    document.getElementById('retireYear').value = state.retireYear;
+                    document.getElementById('retireWithdraw').value = state.retireWithdraw;
+                    document.getElementById('retireInvest').value = state.retireInvest;
+
+                    state.properties.forEach(p => addProperty(p.value, p.rate, false));
+                    state.mortgages.forEach(m => addMortgage(
+                        m.balance, m.rate, m.term, m.grace, m.forced, 
+                        m.startDate, m.prepayments || [], m.name || '', m.isCollapsed || false, false
+                    ));
+                    return;
+                } catch (e) {
+                    console.error("Local data parse error", e);
+                }
+            }
+            // Fallback
+            loadDefaults();
+        }
+
+        function getTodayString() {
+            return new Date().toISOString().split('T')[0];
+        }
+
+        function loadDefaults() {
+            document.getElementById('investStartDate').value = getTodayString();
+            addProperty(2500, -0.5, false);
+            addMortgage(1297.5, 2.19, 26, 2, false, getTodayString(), [], '', false, false);
+        }
+
+        function resetData() {
+            if(confirm('確定要清除所有設定並恢復預設值嗎？ (這也會清空綁定的雲端資料)')) {
+                localStorage.removeItem(LOCAL_SAVE_KEY);
+                // We overwrite cloud with defaults immediately
+                document.getElementById('propertiesList').innerHTML = '';
+                document.getElementById('mortgagesList').innerHTML = '';
+                propertyCount = 0;
+                mortgageCount = 0;
+                loadDefaults();
+                runSimulationAndDraw();
+            }
+        }
+
+        // --- State Extractor & Debounced Save ---
+        function extractCurrentState() {
+            const state = {
+                investStartDate: document.getElementById('investStartDate').value,
+                initInv: document.getElementById('initInv').value,
+                annualRate: document.getElementById('annualRate').value,
+                initInvest: document.getElementById('initInvest').value,
+                modeRate: document.getElementById('modeRate').checked,
+                modeFixed: document.getElementById('modeFixed').checked,
+                yearlyAdd: document.getElementById('yearlyAdd').value,
+                extraInvest: document.getElementById('extraInvest').value,
+                extraInvestYear: document.getElementById('extraInvestYear').value,
+                retireYear: document.getElementById('retireYear').value,
+                retireWithdraw: document.getElementById('retireWithdraw').value,
+                retireInvest: document.getElementById('retireInvest').value,
+                properties: [],
+                mortgages: []
+            };
+
+            document.querySelectorAll('[id^="propCard_"]').forEach(card => {
+                const id = card.id.split('_')[1];
+                state.properties.push({
+                    value: document.getElementById(`propVal_${id}`).value,
+                    rate: document.getElementById(`propRate_${id}`).value
+                });
+            });
+
+            document.querySelectorAll('[id^="mortCard_"]').forEach(card => {
+                const id = card.id.split('_')[1];
+                state.mortgages.push({
+                    name: document.getElementById(`mortName_${id}`).value,
+                    isCollapsed: document.getElementById(`mortBody_${id}`).classList.contains('collapsed'),
+                    balance: document.getElementById(`mortBal_${id}`).value,
+                    rate: document.getElementById(`mortRate_${id}`).value,
+                    term: document.getElementById(`mortTerm_${id}`).value,
+                    grace: document.getElementById(`mortGrace_${id}`).value,
+                    forced: document.getElementById(`mortForced_${id}`).checked,
+                    startDate: document.getElementById(`mortStartDate_${id}`).value,
+                    prepayments: JSON.parse(document.getElementById(`mortPrepayments_${id}`).value)
+                });
+            });
+            return state;
+        }
+
+        function triggerAutoSave() {
+            if (isFetchingCloud) return; // Prevent saving while loading
+            
+            const stateObj = extractCurrentState();
+            const stateStr = JSON.stringify(stateObj);
+            
+            // 1. Save to Local Immediately
+            localStorage.setItem(LOCAL_SAVE_KEY, stateStr);
+            
+            // 2. Debounce Save to Cloud (Wait 1.5s after user stops typing)
+            clearTimeout(autoSaveTimeout);
+            autoSaveTimeout = setTimeout(() => {
+                pushStateToCloud(stateStr);
+            }, 1500);
+        }
+
+
+        // --- UI Interactions ---
+        function addProperty(value = 1000, rate = 2.0, render = true) {
+            propertyCount++;
+            const id = propertyCount;
+            const html = `
+                <div class="item-card" id="propCard_${id}">
+                    <h3>房產 ${id}</h3>
+                    <button class="remove-btn" onclick="removeElement('propCard_${id}')">刪除</button>
+                    <div class="item-row">
+                        <div>
+                            <label>原始總價(萬)</label>
+                            <input type="number" id="propVal_${id}" value="${value}" onchange="runSimulationAndDraw()">
+                        </div>
+                        <div>
+                            <label>年折/增(%)</label>
+                            <input type="number" id="propRate_${id}" value="${rate}" step="0.1" onchange="runSimulationAndDraw()">
+                        </div>
+                    </div>
+                </div>`;
+            document.getElementById('propertiesList').insertAdjacentHTML('beforeend', html);
+            if(render) runSimulationAndDraw();
+        }
+
+        function toggleMortgage(id) {
+            const body = document.getElementById(`mortBody_${id}`);
+            const summary = document.getElementById(`mortSummary_${id}`);
+            const icon = document.getElementById(`mortToggleIcon_${id}`);
+            const header = document.querySelector(`#mortCard_${id} .card-header`);
+            
+            if (body.classList.contains('collapsed')) {
+                body.classList.remove('collapsed');
+                summary.style.display = 'none';
+                icon.innerText = '▲';
+                header.style.borderBottom = '1px solid transparent';
+            } else {
+                body.classList.add('collapsed');
+                summary.style.display = 'inline';
+                icon.innerText = '▼';
+                header.style.borderBottom = 'none';
+            }
+            triggerAutoSave(); 
+        }
+
+        function updateMortgageName(id) {
+            const name = document.getElementById(`mortName_${id}`).value || `房貸 ${id}`;
+            document.getElementById(`mortHeaderTitle_${id}`).innerText = name;
+            triggerAutoSave();
+        }
+
+        function addMortgage(balance = 1000, rate = 2.0, term = 30, grace = 0, forced = false, startDate = null, prepayments = [], name = '', isCollapsed = false, render = true) {
+            mortgageCount++;
+            const id = mortgageCount;
+            const forcedCheck = forced ? 'checked' : '';
+            const sd = startDate || getTodayString();
+            const prepayJson = JSON.stringify(prepayments);
+            const displayName = name || `房貸 ${id}`;
+            const collapsedClass = isCollapsed ? 'collapsed' : '';
+            const summaryDisplay = isCollapsed ? 'inline' : 'none';
+            const iconText = isCollapsed ? '▼' : '▲';
+            
+            const html = `
+                <div class="item-card" id="mortCard_${id}">
+                    <div class="card-header" onclick="toggleMortgage(${id})">
+                        <h3 id="mortHeaderTitle_${id}">${displayName}</h3>
+                        <div style="display:flex; align-items:center;">
+                            <span class="mort-summary" id="mortSummary_${id}" style="display: ${summaryDisplay};">餘額計算中...</span>
+                            <button class="remove-btn" style="position:static; margin-left:10px;" onclick="removeElement('mortCard_${id}'); event.stopPropagation();">刪除</button>
+                            <span class="toggle-icon" id="mortToggleIcon_${id}">${iconText}</span>
+                        </div>
+                    </div>
+                    
+                    <div id="mortBody_${id}" class="mort-body ${collapsedClass}">
+                        <div class="current-balance-display" id="mortCurrentBalDisplay_${id}">推算至模擬起始日，剩餘本金: 計算中...</div>
+                        <input type="hidden" id="mortPrepayments_${id}" value='${prepayJson}'>
+
+                        <div class="item-row">
+                            <div style="flex: 1.5;">
+                                <label>自訂名稱</label>
+                                <input type="text" id="mortName_${id}" value="${name}" placeholder="${displayName}" onchange="updateMortgageName(${id});">
+                            </div>
+                            <div style="flex: 2;">
+                                <label style="color: #c0392b; font-weight: bold;">房貸起始日</label>
+                                <input type="date" id="mortStartDate_${id}" value="${sd}" onchange="runSimulationAndDraw()">
+                            </div>
+                        </div>
+                        <div class="item-row">
+                            <div>
+                                <label>原始總額(萬)</label>
+                                <input type="number" id="mortBal_${id}" value="${balance}" onchange="runSimulationAndDraw()">
+                            </div>
+                            <div>
+                                <label>利率(%)</label>
+                                <input type="number" id="mortRate_${id}" value="${rate}" step="0.01" onchange="runSimulationAndDraw()">
+                            </div>
+                        </div>
+                        <div class="item-row">
+                            <div>
+                                <label>年限(年)</label>
+                                <input type="number" id="mortTerm_${id}" value="${term}" onchange="runSimulationAndDraw()">
+                            </div>
+                            <div>
+                                <label>寬限期(年)</label>
+                                <input type="number" id="mortGrace_${id}" value="${grace}" onchange="runSimulationAndDraw()">
+                            </div>
+                        </div>
+                        <div style="margin-top: 2px; font-size: 11px;">
+                            <input type="checkbox" id="mortForced_${id}" ${forcedCheck} onchange="runSimulationAndDraw()">
+                            <label for="mortForced_${id}">例行繳款強迫賣股</label>
+                        </div>
+                        <button class="btn btn-primary" style="width: 100%; margin-top: 10px; font-size: 12px; padding: 6px; background-color: #8e44ad;" onclick="openPrepayModal(${id})">
+                            📄 提前還款紀錄 (<span id="mortPrepayCount_${id}">${prepayments.length}</span> 筆)
+                        </button>
+                    </div>
+                </div>`;
+            document.getElementById('mortgagesList').insertAdjacentHTML('beforeend', html);
+            if(render) runSimulationAndDraw();
+        }
+
+        function removeElement(elementId) {
+            document.getElementById(elementId).remove();
+            runSimulationAndDraw();
+        }
+
+        // --- Prepayment Modals ---
+        function openPrepayModal(mortId) {
+            activePrepayMortId = mortId;
+            const mName = document.getElementById(`mortName_${mortId}`).value || `房貸 ${mortId}`;
+            document.getElementById('activePrepayMortIdLabel').innerText = mName;
+            document.getElementById('newPrepayDate').value = getTodayString();
+            document.getElementById('newPrepayAmt').value = '';
+            document.getElementById('newPrepayFromInv').checked = false;
+            
+            renderPrepayList();
+            document.getElementById('prepayModal').style.display = 'flex';
+        }
+
+        function closePrepayModal() {
+            document.getElementById('prepayModal').style.display = 'none';
+            activePrepayMortId = null;
+        }
+
+        function renderPrepayList() {
+            const tbody = document.getElementById('prepayListBody');
+            const prepayments = JSON.parse(document.getElementById(`mortPrepayments_${activePrepayMortId}`).value);
+            
+            prepayments.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            if (prepayments.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="color: #999;">目前沒有提前還款紀錄</td></tr>';
+                return;
+            }
+
+            let html = '';
+            prepayments.forEach(p => {
+                const source = p.fromInv ? '<span style="color: #e74c3c;">投資賣股</span>' : '<span style="color: #27ae60;">外部資金</span>';
+                html += `
+                    <tr>
+                        <td>${p.date}</td>
+                        <td>${p.amt} 萬</td>
+                        <td>${source}</td>
+                        <td><button class="btn btn-danger" style="padding: 2px 8px; font-size: 11px;" onclick="deletePrepayment('${p.id}')">刪除</button></td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function addPrepaymentRecord() {
+            const date = document.getElementById('newPrepayDate').value;
+            const amt = parseFloat(document.getElementById('newPrepayAmt').value);
+            const fromInv = document.getElementById('newPrepayFromInv').checked;
+            
+            if (!date || isNaN(amt) || amt <= 0) {
+                alert('請填寫正確的日期與金額！');
+                return;
+            }
+
+            const prepayments = JSON.parse(document.getElementById(`mortPrepayments_${activePrepayMortId}`).value);
+            prepayments.push({
+                id: Date.now().toString(),
+                date: date,
+                amt: amt,
+                fromInv: fromInv
+            });
+
+            document.getElementById(`mortPrepayments_${activePrepayMortId}`).value = JSON.stringify(prepayments);
+            document.getElementById(`mortPrepayCount_${activePrepayMortId}`).innerText = prepayments.length;
+            
+            renderPrepayList();
+            runSimulationAndDraw();
+        }
+
+        function deletePrepayment(prepayId) {
+            let prepayments = JSON.parse(document.getElementById(`mortPrepayments_${activePrepayMortId}`).value);
+            prepayments = prepayments.filter(p => p.id !== prepayId);
+            
+            document.getElementById(`mortPrepayments_${activePrepayMortId}`).value = JSON.stringify(prepayments);
+            document.getElementById(`mortPrepayCount_${activePrepayMortId}`).innerText = prepayments.length;
+            
+            renderPrepayList();
+            runSimulationAndDraw();
+        }
+
+        function addMonthsExact(dateStr, monthsToAdd) {
+            let date = new Date(dateStr);
+            let expectedDay = date.getDate();
+            date.setMonth(date.getMonth() + monthsToAdd);
+            if (date.getDate() !== expectedDay) {
+                date.setDate(0); 
+            }
+            return date;
+        }
+
+        function formatYYYYMM(date) {
+            return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+        }
+
+        // --- Core Simulation Engine ---
+        function runSimulationAndDraw() {
+            // Trigger Save Debounce mechanism instead of instant blocking save
+            triggerAutoSave(); 
+
+            const g = extractCurrentState();
+
+            let simStartBase = new Date(g.investStartDate);
+            simStartBase.setDate(1); 
+            simStartBase.setHours(0, 0, 0, 0);
+
+            const mortgages = [];
+            
+            g.mortgages.forEach(mortState => {
+                const prepayments = mortState.prepayments;
+                prepayments.sort((a, b) => new Date(a.date) - new Date(b.date));
+                prepayments.forEach(p => p.applied = false);
+
+                let mort = {
+                    ...mortState,
+                    balance: (parseFloat(mortState.balance) || 0) * 10000, 
+                    rate: parseFloat(mortState.rate) || 0,
+                    term: parseInt(mortState.term) || 0,
+                    grace: parseInt(mortState.grace) || 0,
+                    paymentsMade: 0,
+                    lastPaymentDate: new Date(mortState.startDate),
+                    pmtFixed: null
+                };
+
+                let nextPaymentDate = addMonthsExact(mort.startDate, mort.paymentsMade + 1);
+                
+                while (nextPaymentDate < simStartBase && mort.paymentsMade < (mort.term * 12) && mort.balance > 0) {
+                    mort.prepayments.forEach(p => {
+                        let pDate = new Date(p.date);
+                        if (!p.applied && pDate.getFullYear() === nextPaymentDate.getFullYear() && pDate.getMonth() === nextPaymentDate.getMonth()) {
+                            mort.balance -= (p.amt * 10000);
+                            if (mort.balance < 0) mort.balance = 0;
+                            p.applied = true;
+                            
+                            if (mort.paymentsMade >= mort.grace * 12) {
+                                let amortMonthsLeft = (mort.term * 12) - mort.paymentsMade;
+                                if (amortMonthsLeft > 0 && mort.balance > 0) {
+                                    let r_m_j = mort.rate / 100 / 12;
+                                    mort.pmtFixed = (r_m_j > 0) ? mort.balance * (r_m_j * Math.pow(1 + r_m_j, amortMonthsLeft)) / (Math.pow(1 + r_m_j, amortMonthsLeft) - 1) : mort.balance / amortMonthsLeft;
+                                } else mort.pmtFixed = 0;
+                            }
+                        }
+                    });
+
+                    let timeDiff = nextPaymentDate.getTime() - mort.lastPaymentDate.getTime();
+                    let days = Math.round(timeDiff / (1000 * 3600 * 24));
+                    let interest = mort.balance * (mort.rate / 100 / 365) * days;
+                    let payment = 0, principal = 0;
+
+                    if (mort.paymentsMade < mort.grace * 12) {
+                        payment = interest;
+                    } else {
+                        let amortMonths = (mort.term - mort.grace) * 12;
+                        if (!mort.pmtFixed) {
+                            let r_m = mort.rate / 100 / 12; 
+                            mort.pmtFixed = (r_m > 0) ? mort.balance * (r_m * Math.pow(1 + r_m, amortMonths)) / (Math.pow(1 + r_m, amortMonths) - 1) : mort.balance / amortMonths;
+                        }
+                        payment = mort.pmtFixed;
+                    }
+                    principal = payment - interest;
+                    if (principal > mort.balance) principal = mort.balance;
+                    
+                    mort.balance -= principal;
+                    if (mort.balance < 0) mort.balance = 0;
+                    
+                    mort.paymentsMade++;
+                    mort.lastPaymentDate = nextPaymentDate;
+                    nextPaymentDate = addMonthsExact(mort.startDate, mort.paymentsMade + 1);
+                }
+
+                let nextPmtDisplay = 0;
+                if (mort.balance > 0 && mort.paymentsMade < mort.term * 12) {
+                    let npDate = addMonthsExact(mort.startDate, mort.paymentsMade + 1);
+                    let tDiff = npDate.getTime() - mort.lastPaymentDate.getTime();
+                    let ds = Math.round(tDiff / (1000 * 3600 * 24));
+                    let intOnly = mort.balance * (mort.rate / 100 / 365) * ds;
+                    
+                    if (mort.paymentsMade < mort.grace * 12) {
+                        nextPmtDisplay = intOnly;
+                    } else {
+                        let amortMonthsLeft = (mort.term * 12) - Math.max(mort.paymentsMade, mort.grace * 12);
+                        if (!mort.pmtFixed) {
+                            let r_m_j = mort.rate / 100 / 12;
+                            mort.pmtFixed = (r_m_j > 0) ? mort.balance * (r_m_j * Math.pow(1 + r_m_j, amortMonthsLeft)) / (Math.pow(1 + r_m_j, amortMonthsLeft) - 1) : mort.balance / amortMonthsLeft;
+                        }
+                        nextPmtDisplay = mort.pmtFixed;
+                    }
+                }
+
+                // UI mapping requires getting the ID from the card element order (hacky but works since order is preserved)
+                // However, since we re-fetched from DOM, let's locate the corresponding elements
+                const propCards = document.querySelectorAll('[id^="mortCard_"]');
+                const id = propCards[mortgages.length].id.split('_')[1];
+
+                document.getElementById(`mortCurrentBalDisplay_${id}`).innerText = `推算至模擬起始日，剩餘本金: ${Math.round(mort.balance / 10000).toLocaleString()} 萬`;
+                document.getElementById(`mortSummary_${id}`).innerText = `餘額: ${Math.round(mort.balance / 10000).toLocaleString()}萬 | 下期: ${Math.round(nextPmtDisplay).toLocaleString()}元`;
+
+                mortgages.push(mort);
+            });
+
+            const properties = [];
+            g.properties.forEach(p => {
+                properties.push({
+                    value: parseFloat(p.value) || 0,
+                    rate: parseFloat(p.rate) || 0
+                });
+            });
+
+            let curInv = parseFloat(g.initInv) * 10000; 
+            let currentBuffer = 0;
+            let cumulativeInvestment = curInv; 
+            
+            let invD = [], nwD = [], houseD = [], debtD = [], labels = [];
+            let r_monthly = Math.pow(1 + parseFloat(g.annualRate) / 100, 1 / 12) - 1;
+
+            let tableHTML = `
+                <table class="details-table">
+                    <thead>
+                        <tr>
+                            <th>時間 (期數)</th>
+                            <th>[房貸] 本月應繳 (含提還)</th> 
+                            <th style="color: #c0392b;">[房貸] 剩餘總額</th> 
+                            <th>[現金池] 是否提領 30 萬</th>
+                            <th>[現金池] 剩餘餘額</th>
+                            <th>[投資] 本月投入</th> 
+                            <th>[投資] 累積成本</th> 
+                            <th style="color: #2980b9;">[投資] 預估餘額</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            for (let y = 1; y <= 50; y++) {
+                labels.push(`第 ${y} 年`);
+
+                let Input_y = 0;
+                if (g.investMode === 'fixed') {
+                    Input_y = parseFloat(g.initInvest) + (y - 1) * parseFloat(g.yearlyAdd);
+                } else {
+                    Input_y = parseFloat(g.initInvest) * Math.pow(1 + parseFloat(g.yearlyAdd) / 100, y - 1);
+                }
+
+                let currentHouseVal = 0;
+                properties.forEach(p => {
+                    currentHouseVal += (p.value * Math.pow(1 + p.rate / 100, y)) * 10000;
+                });
+
+                if (y === parseInt(g.retireYear) + 1) {
+                    curInv += currentBuffer;
+                    currentBuffer = 0;
+                }
+
+                let eoyDebt = 0;
+
+                for (let m = 1; m <= 12; m++) {
+                    let currentSimMonthDate = new Date(simStartBase);
+                    currentSimMonthDate.setMonth(simStartBase.getMonth() + (y - 1) * 12 + (m - 1));
+                    let simY = currentSimMonthDate.getFullYear();
+                    let simM = currentSimMonthDate.getMonth();
+                    let dateLabel = `${formatYYYYMM(currentSimMonthDate)} (第 ${y} 年 ${m} 月)`;
+
+                    let currentMonthInput = (y <= parseInt(g.retireYear)) ? (Input_y * 10000) : (parseFloat(g.retireInvest) * 10000);
+                    
+                    if (y === parseInt(g.extraInvestYear) && m === 1) {
+                        currentMonthInput += (parseFloat(g.extraInvest) * 10000);
+                    }
+                    
+                    cumulativeInvestment += currentMonthInput;
+
+                    let pmtForced = 0; 
+                    let totalMonthlyPayment = 0; 
+                    
+                    mortgages.forEach(mort => {
+                        let r_annual = mort.rate / 100;
+
+                        mort.prepayments.forEach(p => {
+                            let pDate = new Date(p.date);
+                            if (!p.applied && pDate.getFullYear() === simY && pDate.getMonth() === simM) {
+                                let prepayVal = p.amt * 10000;
+                                mort.balance -= prepayVal;
+                                if (mort.balance < 0) mort.balance = 0;
+                                p.applied = true;
+                                
+                                totalMonthlyPayment += prepayVal;
+                                if (p.fromInv) pmtForced += prepayVal;
+
+                                if (mort.paymentsMade >= mort.grace * 12) {
+                                    let amortMonthsLeft = (mort.term * 12) - mort.paymentsMade;
+                                    if (amortMonthsLeft > 0 && mort.balance > 0) {
+                                        let r_m_j = r_annual / 12;
+                                        mort.pmtFixed = (r_m_j > 0) ? mort.balance * (r_m_j * Math.pow(1 + r_m_j, amortMonthsLeft)) / (Math.pow(1 + r_m_j, amortMonthsLeft) - 1) : mort.balance / amortMonthsLeft;
+                                    } else mort.pmtFixed = 0;
+                                }
+                            }
+                        });
+
+                        let nextPaymentDate = addMonthsExact(mort.startDate, mort.paymentsMade + 1);
+
+                        while(nextPaymentDate.getFullYear() === simY && nextPaymentDate.getMonth() === simM && mort.balance > 0 && mort.paymentsMade < mort.term * 12) {
+                            
+                            let timeDiff = nextPaymentDate.getTime() - mort.lastPaymentDate.getTime();
+                            let days = Math.round(timeDiff / (1000 * 3600 * 24));
+                            let interest = mort.balance * (r_annual / 365) * days;
+                            let payment = 0, principal = 0;
+
+                            mort.paymentsMade++;
+
+                            if (mort.paymentsMade <= mort.grace * 12) {
+                                payment = interest;
+                            } else {
+                                let amortMonths = (mort.term - mort.grace) * 12;
+                                if (!mort.pmtFixed) {
+                                    let r_m = r_annual / 12; 
+                                    mort.pmtFixed = (r_m > 0) ? mort.balance * (r_m * Math.pow(1 + r_m, amortMonths)) / (Math.pow(1 + r_m, amortMonths) - 1) : mort.balance / amortMonths;
+                                }
+                                payment = mort.pmtFixed;
+                            }
+                            
+                            principal = payment - interest;
+                            if (principal > mort.balance) {
+                                principal = mort.balance;
+                                payment = principal + interest;
+                            }
+
+                            mort.balance -= principal;
+                            if (mort.balance < 0) mort.balance = 0;
+                            
+                            totalMonthlyPayment += payment;
+                            if (mort.forced) pmtForced += payment;
+
+                            mort.lastPaymentDate = nextPaymentDate;
+                            nextPaymentDate = addMonthsExact(mort.startDate, mort.paymentsMade + 1);
+                        }
+                    });
+                    
+                    let currentTotalMortBalance = 0;
+                    mortgages.forEach(m => currentTotalMortBalance += m.balance);
+
+                    let needToWithdraw = false;
+                    let CF_t = 0; 
+
+                    if (y <= parseInt(g.retireYear)) {
+                        CF_t = currentMonthInput; 
+                        
+                        if (pmtForced > 0) {
+                            if (currentBuffer < pmtForced) {
+                                needToWithdraw = true;
+                                let deficit = pmtForced - currentBuffer;
+                                let need = Math.max(300000, Math.ceil(deficit / 300000) * 300000); 
+                                
+                                if (curInv < need) need = curInv; 
+                                curInv -= need;
+                                currentBuffer += need;
+                            }
+                            currentBuffer -= pmtForced;
+                            if (currentBuffer < 0) currentBuffer = 0; 
+                        }
+                    } else {
+                        CF_t = currentMonthInput - (parseFloat(g.retireWithdraw) * 10000) - pmtForced;
+                    }
+
+                    curInv = curInv * (1 + r_monthly) + CF_t;
+                    if (curInv < 0 || isNaN(curInv)) curInv = 0;
+
+                    let didWithdraw300k = (y <= parseInt(g.retireYear) && needToWithdraw) ? '是' : '否';
+
+                    tableHTML += `<tr>
+                        <td>${dateLabel}</td>
+                        <td>${Math.round(totalMonthlyPayment).toLocaleString()} 元</td>
+                        <td style="color: #c0392b; font-weight: bold;">${Math.round(currentTotalMortBalance).toLocaleString()} 元</td>
+                        <td>${didWithdraw300k}</td>
+                        <td>${Math.round(currentBuffer).toLocaleString()} 元</td>
+                        <td>${Math.round(currentMonthInput).toLocaleString()} 元</td>
+                        <td>${Math.round(cumulativeInvestment).toLocaleString()} 元</td>
+                        <td style="color: #2980b9; font-weight: bold;">${Math.round(curInv).toLocaleString()} 元</td>
+                    </tr>`;
+
+                    if (m === 12) {
+                        eoyDebt = currentTotalMortBalance;
+                    }
+                } 
+
+                invD.push(curInv / 10000);
+                houseD.push(currentHouseVal / 10000);
+                debtD.push(eoyDebt / 10000);
+                nwD.push((curInv + currentHouseVal - eoyDebt) / 10000);
+            } 
+
+            tableHTML += `</tbody></table>`;
+            document.getElementById('tableContainer').innerHTML = tableHTML;
+
+            drawChart(
+                labels.slice(0, 30), 
+                invD.slice(0, 30), 
+                houseD.slice(0, 30), 
+                debtD.slice(0, 30), 
+                nwD.slice(0, 30)
+            );
+        }
+
+        function drawChart(labels, invD, houseD, debtD, nwD) {
+            const ctx = document.getElementById('financeChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: '預估淨資產 (萬元)', data: nwD, borderColor: '#27ae60', backgroundColor: 'transparent', borderWidth: 2, tension: 0.1 },
+                        { label: '投資帳戶餘額 (萬元)', data: invD, borderColor: '#2980b9', backgroundColor: 'transparent', borderDash: [5, 5], borderWidth: 2, tension: 0.1 },
+                        { label: '房屋總現值 (萬元)', data: houseD, borderColor: '#16a085', backgroundColor: 'transparent', borderWidth: 2, tension: 0.1 },
+                        { label: '剩餘房貸總額 (萬元)', data: debtD, borderColor: '#e74c3c', backgroundColor: 'rgba(231, 76, 60, 0.1)', borderWidth: 2, fill: true, tension: 0.1 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false, 
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: { ticks: { maxRotation: 45, minRotation: 45 } },
+                        y: { beginAtZero: true, ticks: { callback: function(value) { return value.toLocaleString(); } } }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: { label: function(context) { return context.dataset.label + ': ' + Math.round(context.raw).toLocaleString() + ' 萬'; } }
+                        }
+                    }
+                }
+            });
+        }
+
+        function openDetailsModal() { document.getElementById('detailsModal').style.display = 'flex'; }
+        function closeDetailsModal() { document.getElementById('detailsModal').style.display = 'none'; }
+        
+        window.onclick = function(event) { 
+            if (event.target == document.getElementById('detailsModal')) closeDetailsModal(); 
+            if (event.target == document.getElementById('prepayModal')) closePrepayModal(); 
+        }
+
+        window.onload = initApp;
+    </script>
+</body>
+</html>
+
