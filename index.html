@@ -2,12 +2,10 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <!-- RWD Meta Tag: Prevents auto-zoom on input focus for iOS devices -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>退休財務動態儀表板</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        /* Base Styles (Desktop First) */
         body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             background-color: #f4f6f9; 
@@ -88,7 +86,7 @@
         .item-row label { display: block; font-size: 11px; color: #666; margin-bottom: 3px; }
         .item-row input { width: 100%; box-sizing: border-box; font-size: 13px;}
         .item-row input[type="date"] { font-size: 11px; }
-        .current-balance-display { color: #27ae60; font-weight: bold; font-size: 13px; margin: 5px 0 10px 0; background: #eafaf1; padding: 5px; border-radius: 4px; text-align: center; border: 1px solid #c8e6c9;}
+        .current-balance-display { color: #27ae60; font-weight: bold; font-size: 13px; margin: 5px 0 10px 0; background: #eafaf1; padding: 6px; border-radius: 4px; text-align: center; border: 1px solid #c8e6c9;}
 
         .chart-container { 
             background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
@@ -117,59 +115,17 @@
         .cloud-settings { background: #fdf2e9; padding: 10px; border-radius: 6px; margin-bottom: 12px; border: 1px solid #fad7a1; }
         .cloud-settings .form-group input { width: 150px; }
 
-        /* RWD Mobile Styles for iPhone */
         @media (max-width: 768px) {
-            body { 
-                height: auto; /* Allow natural scrolling on mobile */
-                overflow-y: auto; 
-                padding: 10px;
-            }
-            .dashboard-header { 
-                flex-direction: column; 
-                align-items: flex-start; 
-                gap: 12px; 
-            }
-            .dashboard-header > div { 
-                display: flex; 
-                flex-wrap: wrap; 
-                width: 100%; 
-                gap: 6px; 
-            }
-            .dashboard-header > div > button { 
-                flex: 1 1 calc(50% - 6px); /* Buttons span 50% width */
-                padding: 10px; 
-                font-size: 13px; 
-            }
-            .grid-container { 
-                display: flex; 
-                flex-direction: column; 
-                height: auto; 
-                min-height: auto; 
-            }
-            .panel { 
-                height: auto; 
-                overflow: visible; /* Disable inner scroll, let the whole page scroll */
-            }
-            .scrollable-content { 
-                overflow-y: visible; 
-            }
-            .chart-container { 
-                height: 400px; 
-                flex: none; 
-                margin-bottom: 20px; 
-            }
-            .modal-content, .modal-content.small { 
-                width: 100%; 
-                height: 100%; 
-                margin: 0; 
-                border-radius: 0; 
-                padding: 15px; 
-                max-height: none;
-            }
-            .details-table th, .details-table td {
-                padding: 6px 8px;
-                font-size: 12px;
-            }
+            body { height: auto; overflow-y: auto; padding: 10px; }
+            .dashboard-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+            .dashboard-header > div { display: flex; flex-wrap: wrap; width: 100%; gap: 6px; }
+            .dashboard-header > div > button { flex: 1 1 calc(50% - 6px); padding: 10px; font-size: 13px; }
+            .grid-container { display: flex; flex-direction: column; height: auto; min-height: auto; }
+            .panel { height: auto; overflow: visible; }
+            .scrollable-content { overflow-y: visible; }
+            .chart-container { height: 400px; flex: none; margin-bottom: 20px; }
+            .modal-content, .modal-content.small { width: 100%; height: 100%; margin: 0; border-radius: 0; padding: 15px; max-height: none;}
+            .details-table th, .details-table td { padding: 6px 8px; font-size: 12px; }
         }
     </style>
 </head>
@@ -189,8 +145,6 @@
         <div class="panel">
             <h2>⚙️ 系統與參數設定</h2>
             <div class="scrollable-content">
-                
-                <!-- Cloud Sync Config -->
                 <div class="cloud-settings">
                     <div style="font-size: 12px; font-weight: bold; color: #d35400; margin-bottom: 8px;">☁️ 雲端同步設定 (GitHub Gist)</div>
                     <div class="form-group">
@@ -315,7 +269,7 @@
             <div class="table-scroll-container" style="max-height: 250px;">
                 <table class="details-table">
                     <thead>
-                        <tr><th>日期</th><th>金額(萬)</th><th>資金來源</th><th>操作</th></tr>
+                        <tr><th>日期</th><th>金額 (萬)</th><th>資金來源</th><th>操作</th></tr>
                     </thead>
                     <tbody id="prepayListBody"></tbody>
                 </table>
@@ -444,7 +398,7 @@
                 document.getElementById('ghGistId').value = creds.gistId || '';
             }
 
-            const loadedFromCloud = await fetchStateFromCloud();
+            await fetchStateFromCloud();
             applyStateToUI();
             runSimulationAndDraw();
         }
@@ -491,7 +445,7 @@
         }
 
         function resetData() {
-            if(confirm('確定要清除所有設定並恢復預設值嗎？ (這也會清空綁定的雲端資料)')) {
+            if(confirm('⚠️ 確定要清除所有設定並恢復預設值嗎？ (這也會清空綁定的雲端資料)')) {
                 localStorage.removeItem(LOCAL_SAVE_KEY);
                 document.getElementById('propertiesList').innerHTML = '';
                 document.getElementById('mortgagesList').innerHTML = '';
@@ -502,7 +456,6 @@
             }
         }
 
-        // --- State Extractor & Debounced Save ---
         function extractCurrentState() {
             const state = {
                 investStartDate: document.getElementById('investStartDate').value,
@@ -560,17 +513,26 @@
             }, 1500);
         }
 
-        // --- UI Interactions ---
+        // --- UI Interactions with Delete Protection ---
+        function removeElement(elementId, typeName) {
+            if(confirm(`⚠️ 確定要刪除這筆【${typeName}】資料嗎？刪除後無法復原。`)) {
+                document.getElementById(elementId).remove();
+                runSimulationAndDraw();
+            }
+        }
+
         function addProperty(value = 1000, rate = 2.0, render = true) {
             propertyCount++;
             const id = propertyCount;
             const html = `
                 <div class="item-card" id="propCard_${id}">
-                    <h3>房產 ${id}</h3>
-                    <button class="remove-btn" onclick="removeElement('propCard_${id}')">刪除</button>
+                    <div class="card-header" style="border:none; cursor:default; padding-bottom:5px;">
+                        <h3>房產 ${id}</h3>
+                        <button class="remove-btn" style="position:static;" onclick="removeElement('propCard_${id}', '房產')">刪除</button>
+                    </div>
                     <div class="item-row">
                         <div>
-                            <label>原始總價(萬)</label>
+                            <label>期初總價(萬)</label>
                             <input type="number" id="propVal_${id}" value="${value}" onchange="runSimulationAndDraw()">
                         </div>
                         <div>
@@ -625,14 +587,14 @@
                     <div class="card-header" onclick="toggleMortgage(${id})">
                         <h3 id="mortHeaderTitle_${id}">${displayName}</h3>
                         <div style="display:flex; align-items:center;">
-                            <span class="mort-summary" id="mortSummary_${id}" style="display: ${summaryDisplay};">餘額計算中...</span>
-                            <button class="remove-btn" style="position:static; margin-left:10px;" onclick="removeElement('mortCard_${id}'); event.stopPropagation();">刪除</button>
+                            <span class="mort-summary" id="mortSummary_${id}" style="display: ${summaryDisplay};">計算中...</span>
+                            <button class="remove-btn" style="position:static; margin-left:10px;" onclick="removeElement('mortCard_${id}', '房貸'); event.stopPropagation();">刪除</button>
                             <span class="toggle-icon" id="mortToggleIcon_${id}">${iconText}</span>
                         </div>
                     </div>
                     
                     <div id="mortBody_${id}" class="mort-body ${collapsedClass}">
-                        <div class="current-balance-display" id="mortCurrentBalDisplay_${id}">推算至模擬起始日，剩餘本金: 計算中...</div>
+                        <div class="current-balance-display" id="mortCurrentBalDisplay_${id}">目前實際剩餘本金: 計算中...</div>
                         <input type="hidden" id="mortPrepayments_${id}" value='${prepayJson}'>
 
                         <div class="item-row">
@@ -647,7 +609,7 @@
                         </div>
                         <div class="item-row">
                             <div>
-                                <label>原始總額(萬)</label>
+                                <label>期初貸款總額(萬)</label>
                                 <input type="number" id="mortBal_${id}" value="${balance}" onchange="runSimulationAndDraw()">
                             </div>
                             <div>
@@ -667,7 +629,7 @@
                         </div>
                         <div style="margin-top: 2px; font-size: 11px;">
                             <input type="checkbox" id="mortForced_${id}" ${forcedCheck} onchange="runSimulationAndDraw()">
-                            <label for="mortForced_${id}">例行繳款強迫賣股</label>
+                            <label for="mortForced_${id}">例行繳款強迫從投資賣股</label>
                         </div>
                         <button class="btn btn-primary" style="width: 100%; margin-top: 10px; font-size: 12px; padding: 6px; background-color: #8e44ad;" onclick="openPrepayModal(${id})">
                             📄 提前還款紀錄 (<span id="mortPrepayCount_${id}">${prepayments.length}</span> 筆)
@@ -676,11 +638,6 @@
                 </div>`;
             document.getElementById('mortgagesList').insertAdjacentHTML('beforeend', html);
             if(render) runSimulationAndDraw();
-        }
-
-        function removeElement(elementId) {
-            document.getElementById(elementId).remove();
-            runSimulationAndDraw();
         }
 
         // --- Prepayment Modals ---
@@ -748,19 +705,27 @@
             document.getElementById(`mortPrepayments_${activePrepayMortId}`).value = JSON.stringify(prepayments);
             document.getElementById(`mortPrepayCount_${activePrepayMortId}`).innerText = prepayments.length;
             
+            // UX Improvement: Clear inputs automatically after adding
+            document.getElementById('newPrepayDate').value = getTodayString();
+            document.getElementById('newPrepayAmt').value = '';
+            document.getElementById('newPrepayFromInv').checked = false;
+
             renderPrepayList();
             runSimulationAndDraw();
+            alert('✅ 提前還款紀錄已成功新增！餘額已即時更新。');
         }
 
         function deletePrepayment(prepayId) {
-            let prepayments = JSON.parse(document.getElementById(`mortPrepayments_${activePrepayMortId}`).value);
-            prepayments = prepayments.filter(p => p.id !== prepayId);
-            
-            document.getElementById(`mortPrepayments_${activePrepayMortId}`).value = JSON.stringify(prepayments);
-            document.getElementById(`mortPrepayCount_${activePrepayMortId}`).innerText = prepayments.length;
-            
-            renderPrepayList();
-            runSimulationAndDraw();
+            if(confirm('⚠️ 確定要刪除這筆【提前還款紀錄】嗎？刪除後將重新計算房貸餘額。')) {
+                let prepayments = JSON.parse(document.getElementById(`mortPrepayments_${activePrepayMortId}`).value);
+                prepayments = prepayments.filter(p => p.id !== prepayId);
+                
+                document.getElementById(`mortPrepayments_${activePrepayMortId}`).value = JSON.stringify(prepayments);
+                document.getElementById(`mortPrepayCount_${activePrepayMortId}`).innerText = prepayments.length;
+                
+                renderPrepayList();
+                runSimulationAndDraw();
+            }
         }
 
         function addMonthsExact(dateStr, monthsToAdd) {
@@ -782,6 +747,7 @@
             triggerAutoSave(); 
 
             const g = extractCurrentState();
+            let investDateObj = new Date(g.investStartDate);
 
             let simStartBase = new Date(g.investStartDate);
             simStartBase.setDate(1); 
@@ -807,12 +773,15 @@
 
                 let nextPaymentDate = addMonthsExact(mort.startDate, mort.paymentsMade + 1);
                 
+                // Fast-forward historical mortgages up to the month before simStartBase
                 while (nextPaymentDate < simStartBase && mort.paymentsMade < (mort.term * 12) && mort.balance > 0) {
                     mort.prepayments.forEach(p => {
                         let pDate = new Date(p.date);
-                        if (!p.applied && pDate.getFullYear() === nextPaymentDate.getFullYear() && pDate.getMonth() === nextPaymentDate.getMonth()) {
-                            mort.balance -= (p.amt * 10000);
-                            if (mort.balance < 0) mort.balance = 0;
+                        if (!p.applied && pDate <= nextPaymentDate) {
+                            let prepayVal = p.amt * 10000;
+                            let actualPrepay = Math.min(prepayVal, mort.balance);
+                            
+                            mort.balance -= actualPrepay;
                             p.applied = true;
                             
                             if (mort.paymentsMade >= mort.grace * 12) {
@@ -851,12 +820,24 @@
                     nextPaymentDate = addMonthsExact(mort.startDate, mort.paymentsMade + 1);
                 }
 
+                // UI Display Balance Logic: Calculate exact balance as of "investStartDate" for the Card UI
+                let uiDisplayBalance = mort.balance;
+                mort.prepayments.forEach(p => {
+                    let pDate = new Date(p.date);
+                    // Catch any prepayments that happen between the 1st of the month and the exact investStartDate
+                    if (!p.applied && pDate <= investDateObj) {
+                        let prepayVal = p.amt * 10000;
+                        uiDisplayBalance -= prepayVal;
+                    }
+                });
+                if (uiDisplayBalance < 0) uiDisplayBalance = 0;
+
                 let nextPmtDisplay = 0;
-                if (mort.balance > 0 && mort.paymentsMade < mort.term * 12) {
+                if (uiDisplayBalance > 0 && mort.paymentsMade < mort.term * 12) {
                     let npDate = addMonthsExact(mort.startDate, mort.paymentsMade + 1);
                     let tDiff = npDate.getTime() - mort.lastPaymentDate.getTime();
                     let ds = Math.round(tDiff / (1000 * 3600 * 24));
-                    let intOnly = mort.balance * (mort.rate / 100 / 365) * ds;
+                    let intOnly = uiDisplayBalance * (mort.rate / 100 / 365) * ds;
                     
                     if (mort.paymentsMade < mort.grace * 12) {
                         nextPmtDisplay = intOnly;
@@ -864,7 +845,7 @@
                         let amortMonthsLeft = (mort.term * 12) - Math.max(mort.paymentsMade, mort.grace * 12);
                         if (!mort.pmtFixed) {
                             let r_m_j = mort.rate / 100 / 12;
-                            mort.pmtFixed = (r_m_j > 0) ? mort.balance * (r_m_j * Math.pow(1 + r_m_j, amortMonthsLeft)) / (Math.pow(1 + r_m_j, amortMonthsLeft) - 1) : mort.balance / amortMonthsLeft;
+                            mort.pmtFixed = (r_m_j > 0) ? uiDisplayBalance * (r_m_j * Math.pow(1 + r_m_j, amortMonthsLeft)) / (Math.pow(1 + r_m_j, amortMonthsLeft) - 1) : uiDisplayBalance / amortMonthsLeft;
                         }
                         nextPmtDisplay = mort.pmtFixed;
                     }
@@ -873,8 +854,8 @@
                 const propCards = document.querySelectorAll('[id^="mortCard_"]');
                 const id = propCards[index].id.split('_')[1];
 
-                document.getElementById(`mortCurrentBalDisplay_${id}`).innerText = `推算至模擬起始日，剩餘本金: ${Math.round(mort.balance / 10000).toLocaleString()} 萬`;
-                document.getElementById(`mortSummary_${id}`).innerText = `餘額: ${Math.round(mort.balance / 10000).toLocaleString()}萬 | 下期: ${Math.round(nextPmtDisplay).toLocaleString()}元`;
+                document.getElementById(`mortCurrentBalDisplay_${id}`).innerHTML = `目前實際剩餘本金：<span style="font-size: 16px;">${Math.round(uiDisplayBalance / 10000).toLocaleString()}</span> 萬`;
+                document.getElementById(`mortSummary_${id}`).innerText = `餘額: ${Math.round(uiDisplayBalance / 10000).toLocaleString()}萬 | 下期: ${Math.round(nextPmtDisplay).toLocaleString()}元`;
 
                 mortgages.push(mort);
             });
@@ -953,16 +934,18 @@
                     mortgages.forEach(mort => {
                         let r_annual = mort.rate / 100;
 
+                        // Check prepayments for this simulation month
                         mort.prepayments.forEach(p => {
                             let pDate = new Date(p.date);
                             if (!p.applied && pDate.getFullYear() === simY && pDate.getMonth() === simM) {
                                 let prepayVal = p.amt * 10000;
-                                mort.balance -= prepayVal;
-                                if (mort.balance < 0) mort.balance = 0;
+                                let actualPrepay = Math.min(prepayVal, mort.balance);
+                                
+                                mort.balance -= actualPrepay;
                                 p.applied = true;
                                 
-                                totalMonthlyPayment += prepayVal;
-                                if (p.fromInv) pmtForced += prepayVal;
+                                totalMonthlyPayment += actualPrepay;
+                                if (p.fromInv) pmtForced += actualPrepay;
 
                                 if (mort.paymentsMade >= mort.grace * 12) {
                                     let amortMonthsLeft = (mort.term * 12) - mort.paymentsMade;
