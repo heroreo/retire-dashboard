@@ -70,18 +70,62 @@
         .form-group input[type="text"], .form-group input[type="password"] { text-align: left; }
         .form-group input[type="checkbox"] { margin-right: 5px; }
         
-        /* Mortgage Card Styles */
+        /* Mortgage Card Styles & Collapse Features - UPDATED FOR CLEANER UI */
         .item-card { background: #f9f9f9; border: 1px solid #e0e0e0; padding: 10px; border-radius: 6px; margin-bottom: 10px; position: relative; }
-        .card-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding-bottom: 5px; border-bottom: 1px solid transparent; }
-        .card-header h3 { font-size: 14px; margin: 0; color: #d35400; font-weight: bold; }
+        .card-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            cursor: pointer; 
+            padding-bottom: 5px; 
+            border-bottom: 1px solid transparent; 
+            flex-wrap: nowrap; /* Prevent wrapping */
+        }
         .card-header:hover { opacity: 0.8; }
         
-        .mort-summary { font-size: 12px; color: #27ae60; font-weight: bold; margin-right: 15px; display: none; }
+        /* Left side: Title + Summary (Flex to shrink title if needed) */
+        .card-header-left {
+            display: flex;
+            align-items: center;
+            flex: 1;
+            min-width: 0; /* Important for flex truncation */
+            gap: 10px;
+        }
+        
+        .card-header h3 { 
+            font-size: 14px; 
+            margin: 0; 
+            color: #d35400; 
+            font-weight: bold; 
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis; /* Add ... if title is too long */
+            flex-shrink: 1;
+        }
+        
+        .mort-summary { 
+            font-size: 11px; /* Slightly smaller to fit more info */
+            color: #27ae60; 
+            font-weight: bold; 
+            white-space: nowrap; /* Never wrap summary */
+            display: none; 
+            flex-shrink: 0; /* Summary should not shrink, only title shrinks */
+        }
+        
+        /* Right side: Delete btn + Toggle icon */
+        .card-header-right {
+            display: flex;
+            align-items: center;
+            flex-shrink: 0;
+            gap: 8px; /* Consistent spacing between btn and icon */
+        }
+
         .mort-body { transition: max-height 0.3s ease; overflow: hidden; display: block; }
         .mort-body.collapsed { display: none; }
         
-        .remove-btn { background: #e74c3c; color: white; border: none; border-radius: 3px; padding: 3px 6px; font-size: 11px; cursor: pointer; }
-        .toggle-icon { font-size: 10px; color: #666; margin-left: 10px; }
+        .remove-btn { background: #e74c3c; color: white; border: none; border-radius: 3px; padding: 4px 8px; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;}
+        .remove-btn:hover { background: #c0392b; }
+        .toggle-icon { font-size: 10px; color: #666; width: 12px; text-align: center; display: inline-block;}
         
         .item-row { display: flex; gap: 8px; margin-bottom: 8px; }
         .item-row > div { flex: 1; }
@@ -130,6 +174,9 @@
             .details-table th, .details-table td { padding: 6px 8px; font-size: 12px; }
             .mort-action-btns { flex-direction: column; }
             .mort-action-btns button { width: 100%; margin-bottom: 5px; }
+            
+            /* Further UI tweaks for small screens */
+            .mort-summary { font-size: 10px; }
         }
         
         .mort-action-btns { display: flex; gap: 5px; margin-top: 10px; }
@@ -568,8 +615,10 @@
             const html = `
                 <div class="item-card" id="propCard_${id}">
                     <div class="card-header" style="border:none; cursor:default; padding-bottom:5px;">
-                        <h3>房產 ${id}</h3>
-                        <button class="remove-btn" style="position:static;" onclick="removeElement('propCard_${id}', '房產')">刪除</button>
+                        <h3 style="flex:1;">房產 ${id}</h3>
+                        <div class="card-header-right">
+                            <button class="remove-btn" onclick="removeElement('propCard_${id}', '房產')">刪除</button>
+                        </div>
                     </div>
                     <div class="item-row">
                         <div>
@@ -599,7 +648,7 @@
                 header.style.borderBottom = '1px solid transparent';
             } else {
                 body.classList.add('collapsed');
-                summary.style.display = 'inline';
+                summary.style.display = 'block';
                 icon.innerText = '▼';
                 header.style.borderBottom = 'none';
             }
@@ -621,16 +670,18 @@
             const ratesJson = JSON.stringify(rateChanges);
             const displayName = name || `房貸 ${id}`;
             const collapsedClass = isCollapsed ? 'collapsed' : '';
-            const summaryDisplay = isCollapsed ? 'inline' : 'none';
+            const summaryDisplay = isCollapsed ? 'block' : 'none';
             const iconText = isCollapsed ? '▼' : '▲';
             
             const html = `
                 <div class="item-card" id="mortCard_${id}">
                     <div class="card-header" onclick="toggleMortgage(${id})">
-                        <h3 id="mortHeaderTitle_${id}">${displayName}</h3>
-                        <div style="display:flex; align-items:center;">
+                        <div class="card-header-left">
+                            <h3 id="mortHeaderTitle_${id}" title="${displayName}">${displayName}</h3>
                             <span class="mort-summary" id="mortSummary_${id}" style="display: ${summaryDisplay};">計算中...</span>
-                            <button class="remove-btn" style="position:static; margin-left:10px;" onclick="removeElement('mortCard_${id}', '房貸'); event.stopPropagation();">刪除</button>
+                        </div>
+                        <div class="card-header-right">
+                            <button class="remove-btn" onclick="removeElement('mortCard_${id}', '房貸'); event.stopPropagation();">刪除</button>
                             <span class="toggle-icon" id="mortToggleIcon_${id}">${iconText}</span>
                         </div>
                     </div>
@@ -1077,8 +1128,7 @@
                 labels.push(`第 ${y} 年`);
 
                 let Input_y = 0;
-                // --- 🚀 BUG FIX: Correctly mapping the Mode Boolean ---
-                if (g.modeFixed) { // <-- This was the bug: checking undefined 'g.investMode' instead of 'g.modeFixed'
+                if (g.modeFixed) { 
                     Input_y = parseFloat(g.initInvest) + (y - 1) * parseFloat(g.yearlyAdd);
                 } else {
                     Input_y = parseFloat(g.initInvest) * Math.pow(1 + parseFloat(g.yearlyAdd) / 100, y - 1);
